@@ -17,6 +17,9 @@ jobs:
       - name: Extrair o projeto
         run: unzip -q "$(find . -name SantoTerco-App.zip | head -1)"
 
+      - name: Marcar a versão do app
+        run: sed -i "s/__BUILD__/${{ github.run_number }}/" SantoTerco-App/www/sw.js
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -65,3 +68,35 @@ jobs:
           tag_name: apk-${{ github.run_number }}
           name: Santo Terço APK ${{ github.run_number }}
           files: SantoTerco-App/android/app/build/outputs/apk/debug/app-debug.apk
+
+  site:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extrair o projeto
+        run: unzip -q "$(find . -name SantoTerco-App.zip | head -1)"
+
+      - name: Marcar a versão do app
+        run: sed -i "s/__BUILD__/${{ github.run_number }}/" SantoTerco-App/www/sw.js
+
+      - name: Montar o site
+        run: |
+          mkdir _site
+          cp -r SantoTerco-App/site/. _site/
+          cp -r SantoTerco-App/www _site/app
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Publicar o site
+        id: deployment
+        uses: actions/deploy-pages@v4
