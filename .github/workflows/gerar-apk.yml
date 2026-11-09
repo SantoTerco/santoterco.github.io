@@ -46,11 +46,25 @@ jobs:
         continue-on-error: true
         working-directory: SantoTerco-App
         run: |
-          for f in $(find android/app/src/main/res -name 'splash.png'); do
-            W=$(identify -format "%w" "$f"); H=$(identify -format "%h" "$f")
-            M=$(( (W<H?W:H) * 80 / 100 ))
-            convert resources/splash-bg.png -resize "${W}x${H}^" -gravity center -extent ${W}x${H} \( resources/mark.png -resize ${M}x${M} \) -gravity center -composite "$f"
-          done
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq python3-pil
+          python3 - <<'PY'
+          import glob, math
+          from PIL import Image
+          bg = Image.open('resources/splash-bg.png').convert('RGB')
+          mark = Image.open('resources/mark.png').convert('RGBA')
+          for f in glob.glob('android/app/src/main/res/**/splash.png', recursive=True):
+              w, h = Image.open(f).size
+              k = max(w / bg.width, h / bg.height)
+              b = bg.resize((math.ceil(bg.width * k), math.ceil(bg.height * k)), Image.LANCZOS)
+              l, t = (b.width - w) // 2, (b.height - h) // 2
+              out = b.crop((l, t, l + w, t + h)).convert('RGBA')
+              m = int(min(w, h) * 0.8)
+              mk = mark.resize((m, m), Image.LANCZOS)
+              out.alpha_composite(mk, ((w - m) // 2, (h - m) // 2))
+              out.convert('RGB').save(f)
+              print('ok', f, w, h)
+          PY
 
       - name: Compilar o APK
         working-directory: SantoTerco-App/android
